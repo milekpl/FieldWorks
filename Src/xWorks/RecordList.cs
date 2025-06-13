@@ -2163,6 +2163,31 @@ namespace SIL.FieldWorks.XWorks
 		{
 			CheckDisposed();
 
+			if (cvDel == 0 && cvIns > 0)
+			{
+				ArrayList newlyAddedSortItems = new ArrayList();
+				for (int idx = ivMin; idx < ivMin + cvIns; idx++)
+				{
+					int hvoNewItem = VirtualListPublisher.get_VecItem(m_owningObject.Hvo, m_flid, idx);
+					MakeItemsFor(newlyAddedSortItems, hvoNewItem);
+				}
+
+				if (newlyAddedSortItems.Count > 0)
+				{
+					if (m_sorter != null && !ListAlreadySorted)
+					{
+						m_sorter.DataAccess = m_publisher;
+						m_sorter.MergeInto(m_sortedObjects, newlyAddedSortItems);
+					}
+					else
+					{
+						m_sortedObjects.AddRange(newlyAddedSortItems);
+					}
+					SendPropChangedOnListChange(CurrentIndex, m_sortedObjects, ListChangedEventArgs.ListChangedActions.Normal);
+				}
+				return;
+			}
+
 			// if a previous reload was requested, but suppressed, try to reload the entire list now.
 			// If we are missing a valid owning object, current HVO, or current index, the list is empty; load it now.
 			// If there is more than one "new" item, reload the whole list.

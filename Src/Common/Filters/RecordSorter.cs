@@ -345,6 +345,7 @@ namespace SIL.FieldWorks.Filters
 		/// ------------------------------------------------------------------------------------
 		protected class LcmCompare : IComparer, IPersistAsXml
 		{
+			private static Dictionary<Tuple<Type, string>, System.Reflection.PropertyInfo> PropertyInfoCache = new Dictionary<Tuple<Type, string>, System.Reflection.PropertyInfo>();
 			/// <summary></summary>
 			protected string m_propertyName;
 			/// <summary></summary>
@@ -425,17 +426,22 @@ namespace SIL.FieldWorks.Filters
 			/// --------------------------------------------------------------------------------
 			protected object GetProperty(ICmObject target, string property)
 			{
-				Type type = target.GetType();
-				System.Reflection.PropertyInfo info = type.GetProperty(property,
-					System.Reflection.BindingFlags.Instance |
-					System.Reflection.BindingFlags.Public |
-					System.Reflection.BindingFlags.FlattenHierarchy );
-				if (info == null)
-					throw new ArgumentException("There is no public property named '"
-						+ property + "' in " + type.ToString()
-						+ ". Remember, properties often end in a multi-character suffix such as OA, OS, RA, RS, or Accessor.");
-
-				return info.GetValue(target,null);
+				var key = Tuple.Create(target.GetType(), property);
+				System.Reflection.PropertyInfo info;
+				if (!PropertyInfoCache.TryGetValue(key, out info))
+				{
+					Type type = target.GetType();
+					info = type.GetProperty(property,
+						System.Reflection.BindingFlags.Instance |
+						System.Reflection.BindingFlags.Public |
+						System.Reflection.BindingFlags.FlattenHierarchy);
+					if (info == null)
+						throw new ArgumentException("There is no public property named '"
+							+ property + "' in " + type.ToString()
+							+ ". Remember, properties often end in a multi-character suffix such as OA, OS, RA, RS, or Accessor.");
+					PropertyInfoCache[key] = info;
+				}
+				return info.GetValue(target, null);
 			}
 
 			/// --------------------------------------------------------------------------------
