@@ -299,7 +299,7 @@ namespace SIL.FieldWorks.XWorks
 				// They will need to be added to the sorted list on an insert, as well.
 
 				// So, whether an item was added or deleted, we need to reload the whole thing.
-				ReloadList();
+				ReloadListSynchronous();
 			}
 			else if (tag == CmPossibilityTags.kflidName ||
 				tag == CmPossibilityTags.kflidAbbreviation)
@@ -630,7 +630,7 @@ namespace SIL.FieldWorks.XWorks
 			// The ListUpdateHelper doesn't always reload the list when it needs it.  See the
 			// second bug listed in FWR-1081.
 			if (m_requestedLoadWhileSuppressed && !fLoadSuppressed && !m_fUpdatingList)
-				ReloadList();
+				ReloadListSynchronous();
 		}
 
 		protected override void MarkEntriesForReload()
@@ -663,14 +663,14 @@ namespace SIL.FieldWorks.XWorks
 		}
 
 
-		public override void ReloadList()
+		public override void ReloadListSynchronous()
 		{
 			if (m_suspendReloadUntilOnChangeListItemsClass)
 			{
 				m_requestedLoadWhileSuppressed = true;
 				return;
 			}
-			base.ReloadList();
+			base.ReloadListSynchronous();
 		}
 
 		internal override bool RestoreFrom(string pathname)
@@ -698,14 +698,14 @@ namespace SIL.FieldWorks.XWorks
 				TargetFlid = newTargetFlid;
 				GetTargetFieldInfo(newListItemsClass, owner, newTargetFlid, out owningObj, out m_flid, out m_propertyName);
 				CheckExpectedListItemsClassInSync(newListItemsClass, this.ListItemsClass);
-				ReloadList();
+				ReloadListSynchronous();
 			}
 			// wait until afterwards, so that the dispose will reload the list for the first time
 			// whether or not we've loaded yet.
 			if (m_suspendReloadUntilOnChangeListItemsClass)
 			{
 				m_suspendReloadUntilOnChangeListItemsClass = false;
-				ReloadList();
+				ReloadListSynchronous();
 			}
 			// otherwise, we'll assume there isn't anything to load.
 		}
@@ -938,7 +938,7 @@ namespace SIL.FieldWorks.XWorks
 		public void UpdateList(IEnumerable<int> objs)
 		{
 			m_objs = objs;
-			ReloadList();
+			ReloadListSynchronous();
 		}
 	}
 
@@ -1724,14 +1724,14 @@ namespace SIL.FieldWorks.XWorks
 				{
 					if (!m_cache.ServiceLocator.IsValidObjectId(item.KeyObject))
 					{
-						ReloadList();
+						ReloadListSynchronous();
 						return true;
 					}
 					for (int i = 0; i < item.PathLength; i++)
 					{
 						if (!m_cache.ServiceLocator.IsValidObjectId(item.PathObject(i)))
 						{
-							ReloadList();
+							ReloadListSynchronous();
 							return true;
 						}
 					}
@@ -1748,7 +1748,7 @@ namespace SIL.FieldWorks.XWorks
 					return true;		// This PropChanged doesn't really apply to us.
 				else
 				{
-					ReloadList(ivMin, cvIns, cvDel);
+					ReloadListSynchronous(ivMin, cvIns, cvDel);
 					return true;
 				}
 			}
@@ -1766,7 +1766,7 @@ namespace SIL.FieldWorks.XWorks
 					RequestReloadOnActivation(window);
 					return true;
 				}
-				ReloadList();
+				ReloadListSynchronous();
 				return true;
 			}
 			else
@@ -2052,7 +2052,7 @@ namespace SIL.FieldWorks.XWorks
 			m_hvoCurrent = 0;
 
 			if (loadList)
-				ReloadList();
+				ReloadListSynchronous();
 			else
 			{
 				ListLoadingSuppressed = true;
@@ -2074,7 +2074,7 @@ namespace SIL.FieldWorks.XWorks
 			// Optimize: it may be possible to find some cases in which we don't need to reload fully,
 			// for example, when reversing the order on the same column.
 			if (m_sortedObjects != null)
-				ReloadList();
+				ReloadListSynchronous();
 		}
 
 		#region navigation
@@ -2194,7 +2194,7 @@ namespace SIL.FieldWorks.XWorks
 			// If there is a new item that doesn't replace an old one, we need to reload the whole list (LT-20952).
 			if (RequestedLoadWhileSuppressed || m_owningObject == null || m_hvoCurrent == 0 || m_currentIndex < 0 || cvIns > 1 || cvIns > cvDel)
 			{
-				ReloadList();
+				ReloadListSynchronous();
 				return;
 			}
 
@@ -2207,7 +2207,7 @@ namespace SIL.FieldWorks.XWorks
 					{
 						// we have only one item in our list, so let's just do a full reload.
 						// We don't want to insert completely new items in an obsolete list (Cf. LT-6741,6845).
-						ReloadList();
+						ReloadListSynchronous();
 						return;
 					}
 					// LT-12632: Before we try to insert a new one, we need to delete the deleted one,
@@ -2230,7 +2230,7 @@ namespace SIL.FieldWorks.XWorks
 					DoneReload?.Invoke(this, EventArgs.Empty);
 					return;
 				default:
-					ReloadList();
+					ReloadListSynchronous();
 					return;
 			}
 		}
@@ -2282,7 +2282,7 @@ namespace SIL.FieldWorks.XWorks
 					// somehow in the process of deleting objects we didn't also remove our SortObjects
 					// (e.g. LT-8735), so reload our list. this shouldn't take much time
 					// since we don't expect it to have any items.
-					ReloadList();
+					ReloadListSynchronous();
 				}
 			}
 		}
@@ -2637,12 +2637,105 @@ namespace SIL.FieldWorks.XWorks
 		/// </summary>
 		public virtual void ForceReloadList()
 		{
-			ReloadList();  // By default nothing special is needed.
+			ReloadListSynchronous();  // By default nothing special is needed.
 		}
+
+		/// <summary>
+		/// Performs the actual filtering and sorting. This is intended to be called by a background thread.
+		/// </summary>
+		public ArrayList GetFilteredSortedListInBackground()
+		{
+			CheckDisposed();
+			//This part is extracted from the original ReloadListSynchronous
+			if (m_owningObject == null || m_owningObject.Hvo == (int)SpecialHVOValues.kHvoObjectDeleted)
+			{
+				return new ArrayList(0);
+			}
+
+			try
+			{
+				return GetFilteredSortedList();
+			}
+			catch (LcmInvalidFieldException)
+			{
+				return HandleInvalidFilterSortField();
+			}
+			catch (ConfigurationException ce)
+			{
+				if (ce.InnerException is LcmInvalidFieldException)
+					return HandleInvalidFilterSortField();
+				else
+					throw;
+			}
+		}
+
+		/// <summary>
+		/// Completes the reload process with the data fetched in the background. This must be called on the UI thread.
+		/// </summary>
+		/// <param name="newSortedObjects"></param>
+		/// <param name="hvoCurrentBeforeReload"></param>
+		public void CompleteReloadListFromBackground(ArrayList newSortedObjects, int hvoCurrentBeforeReload)
+		{
+			CheckDisposed();
+			try
+			{
+				int newCurrentIndex = CurrentIndex;
+				ListChangedEventArgs.ListChangedActions actions;
+
+				if (m_owningObject == null || m_owningObject.Hvo == (int)SpecialHVOValues.kHvoObjectDeleted)
+				{
+					// This case should ideally be handled before calling this method,
+					// by checking the result of GetFilteredSortedListInBackground.
+					// However, as a safeguard:
+					SortedObjects = new ArrayList(0);
+					CurrentIndex = -1;
+					m_hvoCurrent = 0;
+					if (ListChanged != null)
+						ListChanged(this, new ListChangedEventArgs(this, ListChangedEventArgs.ListChangedActions.Normal, 0));
+					return;
+				}
+
+				// Try to stay on the same object if possible.
+				if (hvoCurrentBeforeReload != 0 && newSortedObjects.Count > 0)
+				{
+					newCurrentIndex = GetNewCurrentIndex(newSortedObjects, hvoCurrentBeforeReload);
+					if (newCurrentIndex < 0 && newSortedObjects.Count > 0)
+					{
+						newCurrentIndex = 0; // expected but not found: move to top, but only if there are items in the list.
+						actions = ListChangedEventArgs.ListChangedActions.Normal; // This is a full-blown record change
+					}
+					else
+						// The index changed, so we need to broadcast RecordNavigate, but since we didn't actually change objects,
+						// we shouldn't do a save
+						actions = ListChangedEventArgs.ListChangedActions.SuppressSaveOnChangeRecord;
+				}
+				else
+				{
+					// We didn't even expect to find it, probably it's been deleted or sorted list has become empty.
+					// Keep the current position as far as possible.
+					if (newCurrentIndex >= newSortedObjects.Count)
+						newCurrentIndex = newSortedObjects.Count - 1;
+					else
+					{
+						newCurrentIndex = GetPersistedCurrentIndex(newSortedObjects.Count);
+					}
+					actions = ListChangedEventArgs.ListChangedActions.Normal; // We definitely changed records
+				}
+
+				SendPropChangedOnListChange(newCurrentIndex, newSortedObjects, actions);
+				FinishedReloadList();
+			}
+			finally
+			{
+				m_reloadingList = false;
+			}
+		}
+
 		/// <summary>
 		/// Sort and filter the underlying property to create the current list of objects.
+		/// This is the synchronous version. The public ReloadList will eventually call this via background worker.
 		/// </summary>
-		public virtual void ReloadList()
+		public virtual void ReloadListSynchronous()
 		{
 			CheckDisposed();
 
@@ -2863,7 +2956,7 @@ namespace SIL.FieldWorks.XWorks
 		{
 			UninstallWindowActivated();
 			if (NeedToReloadList())
-				ReloadList();
+				ReloadListSynchronous();
 		}
 
 		private void UninstallWindowActivated()
@@ -3313,7 +3406,7 @@ namespace SIL.FieldWorks.XWorks
 			// Creating a list item and then jumping to the tool can leave the list stale, putting us
 			// in a bogus state where the edit pane never gets painted.  (See LT-7580.)
 			if (RequestedLoadWhileSuppressed)
-				ReloadList();
+				ReloadListSynchronous();
 			return IndexOf(SortedObjects, hvo);
 		}
 
