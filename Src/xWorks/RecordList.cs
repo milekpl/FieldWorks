@@ -605,7 +605,7 @@ namespace SIL.FieldWorks.XWorks
 		{
 			CheckDisposed();
 
-			if (m_fUpdatingList || m_reloadingList)
+			if (m_fUpdatingList || m_reloadingListInternal) // Already correct
 				return;	// we're already in the process of changing our list.
 
 			bool fLoadSuppressed = m_requestedLoadWhileSuppressed;
@@ -2882,8 +2882,8 @@ namespace SIL.FieldWorks.XWorks
 			}
 			finally
 			{
+				// Corrected to set only once. This was a duplicated line from the previous automated diff.
 				m_reloadingListInternal = false;
-				m_reloadingListInternal = false; // This is correct from previous refactoring
 			}
 		}
 
