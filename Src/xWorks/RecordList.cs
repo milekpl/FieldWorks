@@ -985,7 +985,7 @@ namespace SIL.FieldWorks.XWorks
 		protected string m_propertyName;
 		protected string m_fontName;
 		protected int m_typeSize = 10;
-		protected bool m_reloadingList;
+		internal bool m_reloadingListInternal; // Renamed and made internal
 		private bool m_suppressingLoadList;
 		protected bool m_requestedLoadWhileSuppressed;
 		protected bool m_deletingObject;
@@ -1297,7 +1297,7 @@ namespace SIL.FieldWorks.XWorks
 			get
 			{
 				CheckDisposed();
-				return m_reloadingList || m_deletingObject;
+				return m_reloadingListInternal || m_deletingObject;
 			}
 		}
 
@@ -1664,7 +1664,7 @@ namespace SIL.FieldWorks.XWorks
 		{
 			CheckDisposed();
 
-			if (m_fUpdatingList || m_reloadingList)
+			if (m_fUpdatingList || m_reloadingListInternal)
 				return;	// we're already in the process of changing our list.
 
 			// If this list contains WfiWordforms, and the tag indicates a change to the
@@ -2740,7 +2740,7 @@ namespace SIL.FieldWorks.XWorks
 			CheckDisposed();
 
 			// Skip multiple reloads and reloading when our clerk is not active.
-			if (m_reloadingList)
+			if (m_reloadingListInternal)
 			{
 				return;
 			}
@@ -2789,7 +2789,7 @@ namespace SIL.FieldWorks.XWorks
 					}
 					Clerk.UpdateHelper.ClearBrowseListUntilReload = false;
 				}
-				m_reloadingList = true;
+				m_reloadingListInternal = true;
 				if (UpdatePrivateList())
 					return; // Cannot complete the reload until PropChangeds complete.
 				int newCurrentIndex = CurrentIndex;
@@ -2882,7 +2882,8 @@ namespace SIL.FieldWorks.XWorks
 			}
 			finally
 			{
-				m_reloadingList = false;
+				m_reloadingListInternal = false;
+				m_reloadingListInternal = false; // This is correct from previous refactoring
 			}
 		}
 
