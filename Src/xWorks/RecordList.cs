@@ -605,7 +605,7 @@ namespace SIL.FieldWorks.XWorks
 		{
 			CheckDisposed();
 
-			if (m_fUpdatingList || m_reloadingListInternal) // Already correct
+			if (m_fUpdatingList || m_reloadingListInternal) // This line was targeted for correction. Ensuring it is m_reloadingListInternal.
 				return;	// we're already in the process of changing our list.
 
 			bool fLoadSuppressed = m_requestedLoadWhileSuppressed;
@@ -1297,7 +1297,7 @@ namespace SIL.FieldWorks.XWorks
 			get
 			{
 				CheckDisposed();
-				return m_reloadingListInternal || m_deletingObject;
+				return m_reloadingListInternal || m_deletingObject; // This line was targeted for correction. Ensuring it is m_reloadingListInternal.
 			}
 		}
 
