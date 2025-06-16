@@ -2727,7 +2727,7 @@ namespace SIL.FieldWorks.XWorks
 			}
 			finally
 			{
-				m_reloadingList = false;
+				m_reloadingListInternal = false;
 			}
 		}
 
